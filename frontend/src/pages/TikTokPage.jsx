@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { apiFetch } from "../api";
 import { Search, Heart, MessageCircle, Share2, Play, Music2, TrendingUp, ExternalLink } from "lucide-react";
 
 function formatCount(n) {
@@ -112,8 +113,7 @@ export default function TikTokPage() {
     setError("");
     setData(null);
     try {
-      const res = await fetch(`/api/tiktok/search?keyword=${encodeURIComponent(keyword)}`);
-      const json = await res.json();
+      const json = await apiFetch(`/api/tiktok/search?keyword=${encodeURIComponent(keyword)}`);
       if (json.error) throw new Error(json.error);
       setData(json);
     } catch (e) {
@@ -126,8 +126,7 @@ export default function TikTokPage() {
   async function loadTrending() {
     setLoadingTrends(true);
     try {
-      const res = await fetch("/api/tiktok/trending");
-      const json = await res.json();
+      const json = await apiFetch("/api/tiktok/trending");
       setTrends(json);
     } catch {}
     finally { setLoadingTrends(false); }

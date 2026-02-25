@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Search, Star, ExternalLink, ShoppingBag, Package } from "lucide-react";
+import { apiFetch } from "../api";
 
 const SORT_OPTIONS = [
   { value: "default", label: "Standard" },
@@ -87,11 +88,10 @@ export default function ProductsPage() {
     setAmzData(null);
 
     try {
-      const [aliRes, amzRes] = await Promise.all([
-        fetch(`/api/products/aliexpress?keyword=${encodeURIComponent(keyword)}&sort_by=${sortBy}`),
-        fetch(`/api/products/amazon?keyword=${encodeURIComponent(keyword)}`),
+      const [ali, amz] = await Promise.all([
+        apiFetch(`/api/products/aliexpress?keyword=${encodeURIComponent(keyword)}&sort_by=${sortBy}`),
+        apiFetch(`/api/products/amazon?keyword=${encodeURIComponent(keyword)}`),
       ]);
-      const [ali, amz] = await Promise.all([aliRes.json(), amzRes.json()]);
       setAliData(ali);
       setAmzData(amz);
     } catch (e) {

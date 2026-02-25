@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Search, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { apiFetch } from "../api";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
@@ -42,8 +43,7 @@ export default function TrendsPage() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`/api/trends/search?keyword=${encodeURIComponent(keyword)}&timeframe=${encodeURIComponent(timeframe)}&geo=${geo}`);
-      const json = await res.json();
+      const json = await apiFetch(`/api/trends/search?keyword=${encodeURIComponent(keyword)}&timeframe=${encodeURIComponent(timeframe)}&geo=${geo}`);
       if (json.error) throw new Error(json.error);
       setData(json);
     } catch (e) {
@@ -55,8 +55,7 @@ export default function TrendsPage() {
 
   async function loadTrending() {
     try {
-      const res = await fetch("/api/trends/trending");
-      const json = await res.json();
+      const json = await apiFetch("/api/trends/trending");
       setTrending(json.trending || []);
     } catch {}
   }
