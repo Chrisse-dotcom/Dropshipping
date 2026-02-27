@@ -1,6 +1,6 @@
 from pytrends.request import TrendReq
-from cachetools import TTLCache, cached
-import time
+from cachetools import TTLCache
+from fastapi import HTTPException
 
 cache = TTLCache(maxsize=100, ttl=3600)
 
@@ -9,12 +9,17 @@ def get_trend_data(keyword: str, timeframe: str = "today 3-m", geo: str = "DE"):
     if cache_key in cache:
         return cache[cache_key]
 
-    pytrends = TrendReq(hl="de-DE", tz=60)
-    pytrends.build_payload([keyword], timeframe=timeframe, geo=geo)
+    try:
+        pytrends = TrendReq(hl="de-DE", tz=60)
+        pytrends.build_payload([keyword], timeframe=timeframe, geo=geo)
 
-    interest_over_time = pytrends.interest_over_time()
-    related_queries = pytrends.related_queries()
-    related_topics = pytrends.related_topics()
+        interest_over_time = pytrends.interest_over_time()
+        related_queries = pytrends.related_queries()
+    except Exception as e:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Google Trends ist gerade nicht erreichbar (Server-IP blockiert oder Rate-Limit). Bitte später versuchen. ({e})"
+        )
 
     timeline = []
     if not interest_over_time.empty and keyword in interest_over_time.columns:
