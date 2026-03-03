@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dropshipping Research Tool</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:      #0a0f1e;
+      --surface: #111827;
+      --border:  #1f2937;
+      --border2: #374151;
+      --brand:   #4361ee;
+      --brand-d: #3451d1;
+      --text:    #f9fafb;
+      --muted:   #9ca3af;
+      --subtle:  #6b7280;
+    }
+    html { font-family: system-ui, -apple-system, sans-serif; font-size: 15px; }
+    body { background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+
+    /* ── Layout ─────────────────────────────────────── */
+    header {
+      position: sticky; top: 0; z-index: 100;
+      background: #060b16; border-bottom: 1px solid var(--border);
+    }
+    .header-inner {
+      max-width: 1280px; margin: auto; padding: 0 1.5rem;
+      display: flex; align-items: center; justify-content: space-between; height: 60px;
+    }
+    .logo { display: flex; align-items: center; gap: .6rem; text-decoration: none; }
+    .logo-icon {
+      width: 34px; height: 34px; background: var(--brand); border-radius: 8px;
+      display: flex; align-items: center; justify-content: center; font-size: 1.1rem;
+    }
+    .logo-text { font-size: 1.05rem; font-weight: 700; color: var(--text); }
+    .logo-text span { color: var(--brand); }
+    nav { display: flex; gap: 4px; }
+    nav button {
+      display: flex; align-items: center; gap: 6px;
+      padding: 7px 14px; border-radius: 8px; border: none; cursor: pointer;
+      font-size: .85rem; font-weight: 500; background: transparent; color: var(--muted);
+      transition: background .15s, color .15s;
+    }
+    nav button:hover { background: var(--surface); color: var(--text); }
+    nav button.active { background: var(--brand); color: #fff; }
+    nav button .nav-label { display: none; }
+    @media(min-width: 520px) { nav button .nav-label { display: inline; } }
+
+    /* settings bar */
+    .api-bar {
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      padding: .6rem 1.5rem; display: none; gap: .6rem; align-items: center;
+    }
+    .api-bar.open { display: flex; }
+    .api-bar label { font-size: .8rem; color: var(--muted); white-space: nowrap; }
+    .api-bar input { flex: 1; }
+    .api-bar button { white-space: nowrap; }
+    .api-bar-hint { font-size: .75rem; color: var(--subtle); }
+
+    main { flex: 1; max-width: 1280px; margin: auto; width: 100%; padding: 2rem 1.5rem; }
+    footer { border-top: 1px solid var(--border); text-align: center; font-size: .75rem; color: var(--subtle); padding: 1rem; }
+
+    /* pages */
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* ── Components ─────────────────────────────────── */
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 1.25rem;
+    }
+    .card + .card, .card + .grid-2, .grid-2 + .card { margin-top: 1.5rem; }
+    input, select {
+      background: #0d1424; border: 1px solid var(--border2); border-radius: 8px;
+      color: var(--text); padding: .55rem .85rem; font-size: .875rem; outline: none;
+      transition: border-color .15s;
+    }
+    input:focus, select:focus { border-color: var(--brand); }
+    input::placeholder { color: var(--subtle); }
+    select option { background: #0d1424; }
+    .btn {
+      padding: .55rem 1.1rem; border-radius: 8px; border: none; cursor: pointer;
+      font-size: .875rem; font-weight: 500; transition: background .15s, opacity .15s;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-primary { background: var(--brand); color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: var(--brand-d); }
+    .btn-secondary {
+      background: var(--surface); color: var(--muted); border: 1px solid var(--border2);
+    }
+    .btn-secondary:hover:not(:disabled) { background: var(--border); color: var(--text); }
+    .btn-secondary.active { background: var(--brand); color: #fff; border-color: var(--brand); }
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: .75rem; font-weight: 500; padding: 3px 9px; border-radius: 99px;
+      cursor: default; border: none;
+    }
+    .badge-btn { cursor: pointer; transition: background .15s; }
+    .badge-btn:hover { filter: brightness(1.2); }
+    .error-box {
+      background: rgba(239,68,68,.1); border: 1px solid rgba(239,68,68,.3);
+      border-radius: 12px; padding: 1rem; color: #f87171; font-size: .875rem;
+    }
+    .spacer { margin-top: 1.5rem; }
+
+    /* row / flex helpers */
+    .row { display: flex; gap: .75rem; flex-wrap: wrap; align-items: center; }
+    .row .flex1 { flex: 1; min-width: 180px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+    @media(max-width: 640px) { .grid-2 { grid-template-columns: 1fr; } }
+
+    /* ── Dashboard ───────────────────────────────────── */
+    .hero { text-align: center; padding: 1.5rem 0; }
+    .hero h1 { font-size: 2.5rem; font-weight: 800; line-height: 1.2; margin-top: .75rem; }
+    .hero h1 span { color: var(--brand); }
+    .hero p { color: var(--muted); margin-top: .75rem; max-width: 560px; margin-left: auto; margin-right: auto; }
+    .feature-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 1.5rem; margin-top: 2rem; }
+    @media(max-width: 700px) { .feature-grid { grid-template-columns: 1fr; } .hero h1 { font-size: 1.8rem; } }
+    .feature-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+      padding: 1.25rem; text-align: left; cursor: pointer;
+      transition: border-color .15s; display: flex; flex-direction: column;
+    }
+    .feature-card:hover { border-color: var(--border2); }
+    .feat-icon {
+      width: 48px; height: 48px; border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.4rem; margin-bottom: 1rem;
+    }
+    .feature-card h3 { font-size: 1rem; font-weight: 600; }
+    .feature-card p { font-size: .85rem; color: var(--muted); margin-top: .4rem; line-height: 1.5; }
+    .feat-link { margin-top: auto; padding-top: .75rem; font-size: .85rem; font-weight: 500; }
+
+    /* ── Trends page ─────────────────────────────────── */
+    .trend-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+    .trend-header h3 { font-size: 1rem; font-weight: 600; }
+    .trend-header small { color: var(--muted); font-size: .8rem; }
+    .indicator {
+      font-size: .75rem; font-weight: 500; padding: 3px 10px; border-radius: 99px;
+      display: inline-flex; align-items: center; gap: 4px;
+    }
+    .ind-up   { background: rgba(52,211,153,.15); color: #34d399; }
+    .ind-down { background: rgba(239,68,68,.15);  color: #f87171; }
+    .ind-flat { background: rgba(107,114,128,.2); color: var(--muted); }
+    .bar-row { display: flex; align-items: center; justify-content: space-between; font-size: .85rem; margin-bottom: 8px; }
+    .bar-track { width: 80px; height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; display: inline-block; }
+    .bar-fill  { height: 100%; background: var(--brand); border-radius: 3px; }
+    .rising-val { font-size: .75rem; font-weight: 500; padding: 2px 8px; border-radius: 99px; background: rgba(52,211,153,.15); color: #34d399; }
+
+    /* ── Products page ───────────────────────────────── */
+    .products-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
+      gap: 1rem; margin-top: 1rem;
+    }
+    .product-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+      overflow: hidden; text-decoration: none; display: flex; flex-direction: column;
+      transition: border-color .15s;
+    }
+    .product-card:hover { border-color: var(--border2); }
+    .product-img-wrap {
+      aspect-ratio: 1; background: #0d1424; position: relative; overflow: hidden;
+    }
+    .product-img-wrap img { width: 100%; height: 100%; object-fit: cover; transition: transform .2s; }
+    .product-card:hover img { transform: scale(1.05); }
+    .product-img-wrap .no-img {
+      width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+      font-size: 2rem; color: var(--border2);
+    }
+    .product-badge-tl { position: absolute; top: 6px; left: 6px; }
+    .product-badge-tr { position: absolute; top: 6px; right: 6px; }
+    .product-body { padding: .75rem; flex: 1; display: flex; flex-direction: column; gap: 4px; }
+    .product-title { font-size: .8rem; color: #d1d5db; line-height: 1.4;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .product-price { font-size: .95rem; font-weight: 700; color: var(--text); }
+    .product-meta  { font-size: .73rem; color: var(--subtle); }
+    .product-footer {
+      padding: .5rem .75rem; border-top: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between; font-size: .73rem;
+    }
+    .src-ali { background: rgba(249,115,22,.15); color: #fb923c; border-radius: 99px; padding: 2px 8px; }
+    .src-amz { background: rgba(234,179,8,.15);  color: #fbbf24; border-radius: 99px; padding: 2px 8px; }
+    .stars { color: #fbbf24; font-size: .75rem; display: flex; align-items: center; gap: 3px; }
+
+    /* ── TikTok page ─────────────────────────────────── */
+    .tiktok-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 1rem; margin-top: 1rem;
+    }
+    .video-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+      overflow: hidden; text-decoration: none; display: flex; flex-direction: column;
+      transition: border-color .15s;
+    }
+    .video-card:hover { border-color: var(--border2); }
+    .video-thumb {
+      aspect-ratio: 9/16; background: #0d1424; position: relative; overflow: hidden;
+    }
+    .video-thumb img { width: 100%; height: 100%; object-fit: cover; transition: transform .2s; }
+    .video-card:hover .video-thumb img { transform: scale(1.05); }
+    .video-thumb-overlay {
+      position: absolute; inset: 0;
+      background: linear-gradient(to top, rgba(0,0,0,.6) 0%, transparent 50%);
+    }
+    .video-thumb-caption {
+      position: absolute; bottom: 6px; left: 6px; right: 6px;
+      font-size: .73rem; color: #fff; line-height: 1.3;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .video-no-thumb {
+      width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+      font-size: 2rem; color: var(--border2);
+    }
+    .video-body { padding: .65rem; }
+    .video-author { font-size: .8rem; color: var(--brand); font-weight: 500; margin-bottom: 6px; }
+    .video-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; font-size: .73rem; color: var(--muted); }
+    .video-stat { display: flex; align-items: center; gap: 4px; }
+
+    /* hashtag list */
+    .hashtag-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 0; border-bottom: 1px solid var(--border); font-size: .875rem;
+    }
+    .hashtag-row:last-child { border-bottom: none; }
+    .ht-left  { display: flex; align-items: center; gap: .75rem; }
+    .ht-rank  { color: var(--subtle); width: 22px; text-align: right; font-size: .8rem; }
+    .ht-link  { color: #f472b6; text-decoration: none; font-weight: 500; }
+    .ht-link:hover { color: #fb7eb9; }
+    .ht-right { display: flex; align-items: center; gap: .5rem; color: var(--muted); font-size: .8rem; }
+
+    /* misc */
+    .section-title { font-size: 1rem; font-weight: 600; margin-bottom: .75rem; display: flex; align-items: center; gap: .5rem; }
+    .hashtag-info {
+      border: 1px solid rgba(244,114,182,.25); background: rgba(244,114,182,.05);
+      border-radius: 12px; padding: 1.25rem;
+    }
+    .hashtag-info h2 { font-size: 1.4rem; font-weight: 700; }
+    .hashtag-stats { display: flex; gap: 2rem; margin-top: .75rem; }
+    .hashtag-stat p:first-child { font-size: .8rem; color: var(--subtle); }
+    .hashtag-stat p:last-child  { font-size: 1rem; font-weight: 700; }
+    .workflow { list-style: none; counter-reset: step; }
+    .workflow li { counter-increment: step; display: flex; gap: .75rem; margin-bottom: .6rem; font-size: .875rem; color: #d1d5db; }
+    .workflow li::before {
+      content: counter(step);
+      min-width: 22px; height: 22px; background: var(--brand); border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .75rem; font-weight: 700; color: #fff; flex-shrink: 0; margin-top: 1px;
+    }
+    .tip-card { border: 1px solid rgba(67,97,238,.3); background: rgba(67,97,238,.07); border-radius: 12px; padding: 1.25rem; margin-top: 1.5rem; }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════ HEADER ════════════════════════════ -->
+<header>
+  <div class="header-inner">
+    <a class="logo" href="#" onclick="showPage('dashboard');return false;">
+      <div class="logo-icon">📈</div>
+      <span class="logo-text">Dropshipping<span>Research</span></span>
+    </a>
+    <nav>
+      <button id="tab-dashboard" class="active" onclick="showPage('dashboard')">
+        <span>🏠</span><span class="nav-label">Dashboard</span>
+      </button>
+      <button id="tab-trends" onclick="showPage('trends')">
+        <span>📊</span><span class="nav-label">Trends</span>
+      </button>
+      <button id="tab-products" onclick="showPage('products')">
+        <span>🛍️</span><span class="nav-label">Produkte</span>
+      </button>
+      <button id="tab-tiktok" onclick="showPage('tiktok')">
+        <span>🎵</span><span class="nav-label">TikTok</span>
+      </button>
+      <button id="tab-settings" onclick="toggleSettings()" title="API-URL konfigurieren">⚙️</button>
+    </nav>
+  </div>
+</header>
+
+<!-- Settings bar -->
+<div class="api-bar" id="api-bar">
+  <label>Backend-URL:</label>
+  <input id="api-url-input" type="text" placeholder="leer = relativ (docker / lokal) | z.B. https://backend-xxx.railway.app" style="max-width:520px"/>
+  <button class="btn btn-primary" onclick="saveApiUrl()">Speichern</button>
+  <span class="api-bar-hint">Wird im Browser gespeichert.</span>
+</div>
+
+<!-- ═══════════════ MAIN ════════════════════════════════ -->
+<main>
+
+  <!-- ── DASHBOARD ──────────────────────────────────── -->
+  <div id="page-dashboard" class="page active">
+    <div class="hero">
+      <span class="badge" style="background:rgba(67,97,238,.2);color:var(--brand)">⚡ Vollautomatische Produkt-Recherche</span>
+      <h1>Finde die nächsten<br><span>Winning Products</span></h1>
+      <p>Analysiere Trends, vergleiche Lieferanten und entdecke virale Produkte — alles in einem Tool.</p>
+    </div>
+
+    <div class="feature-grid">
+      <button class="feature-card" onclick="showPage('trends')">
+        <div class="feat-icon" style="background:rgba(96,165,250,.1)">📊</div>
+        <h3>Google Trends</h3>
+        <p>Analysiere das Suchvolumen und den Trend-Verlauf für jedes Produkt über Zeit.</p>
+        <span class="feat-link" style="color:#60a5fa">Jetzt öffnen →</span>
+      </button>
+      <button class="feature-card" onclick="showPage('products')">
+        <div class="feat-icon" style="background:rgba(52,211,153,.1)">🛍️</div>
+        <h3>Produkt-Recherche</h3>
+        <p>Vergleiche Preise und Bewertungen auf AliExpress und Amazon gleichzeitig.</p>
+        <span class="feat-link" style="color:#34d399">Jetzt öffnen →</span>
+      </button>
+      <button class="feature-card" onclick="showPage('tiktok')">
+        <div class="feat-icon" style="background:rgba(244,114,182,.1)">🎵</div>
+        <h3>TikTok Trends</h3>
+        <p>Entdecke viral gehende Produkte und Hashtags auf TikTok bevor sie explodieren.</p>
+        <span class="feat-link" style="color:#f472b6">Jetzt öffnen →</span>
+      </button>
+    </div>
+
+    <div class="card spacer">
+      <div class="section-title">🔍 Schnell-Suchen</div>
+      <div class="row" style="gap:.5rem">
+        <button class="badge badge-btn" style="background:#1f2937;color:#d1d5db" onclick="quickSearch('Fidget Spinner')">Fidget Spinner</button>
+        <button class="badge badge-btn" style="background:#1f2937;color:#d1d5db" onclick="quickSearch('LED Beleuchtung')">LED Beleuchtung</button>
+        <button class="badge badge-btn" style="background:#1f2937;color:#d1d5db" onclick="quickSearch('Wireless Earbuds')">Wireless Earbuds</button>
+        <button class="badge badge-btn" style="background:#1f2937;color:#d1d5db" onclick="quickSearch('Smartwatch')">Smartwatch</button>
+        <button class="badge badge-btn" style="background:#1f2937;color:#d1d5db" onclick="quickSearch('Handytasche')">Handytasche</button>
+        <button class="badge badge-btn" style="background:#1f2937;color:#d1d5db" onclick="quickSearch('Yoga Matte')">Yoga Matte</button>
+        <button class="badge badge-btn" style="background:#1f2937;color:#d1d5db" onclick="quickSearch('Reise Organizer')">Reise Organizer</button>
+        <button class="badge badge-btn" style="background:#1f2937;color:#d1d5db" onclick="quickSearch('Mini Drucker')">Mini Drucker</button>
+      </div>
+    </div>
+
+    <div class="tip-card">
+      <div class="section-title">💡 Workflow-Tipp</div>
+      <ol class="workflow">
+        <li>Starte mit <strong>TikTok Trends</strong>, um virale Produkte zu entdecken</li>
+        <li>Prüfe den <strong>Google Trend-Verlauf</strong> — steigt oder fällt der Trend?</li>
+        <li>Suche auf <strong>AliExpress</strong> nach dem besten Lieferantenpreis</li>
+        <li>Vergleiche mit <strong>Amazon-Preisen</strong>, um deine Marge zu berechnen</li>
+      </ol>
+    </div>
+  </div>
+
+  <!-- ── TRENDS ──────────────────────────────────────── -->
+  <div id="page-trends" class="page">
+    <h2 style="font-size:1.4rem;font-weight:700">Google Trends</h2>
+    <p style="color:var(--muted);font-size:.875rem;margin-top:4px">Analysiere Suchtrends für Produkte und Nischen</p>
+
+    <div class="card spacer">
+      <div class="row">
+        <input id="t-keyword" class="flex1" placeholder="Keyword eingeben z.B. 'Wireless Earbuds'..."
+          onkeydown="if(event.key==='Enter')trendsSearch()"/>
+        <select id="t-timeframe">
+          <option value="today 1-m">1 Monat</option>
+          <option value="today 3-m" selected>3 Monate</option>
+          <option value="today 12-m">12 Monate</option>
+          <option value="today 5-y">5 Jahre</option>
+        </select>
+        <select id="t-geo">
+          <option value="DE" selected>Deutschland</option>
+          <option value="AT">Österreich</option>
+          <option value="CH">Schweiz</option>
+          <option value="">Weltweit</option>
+        </select>
+        <button class="btn btn-primary" id="t-btn" onclick="trendsSearch()">🔍 Suchen</button>
+      </div>
+      <div style="margin-top:.9rem">
+        <button class="btn btn-secondary" style="font-size:.8rem" onclick="loadTrendingSearches()">🔥 Trending-Suchen laden</button>
+      </div>
+      <div id="t-trending-wrap" style="margin-top:.75rem;display:none">
+        <div id="t-trending-pills" class="row" style="gap:.4rem;flex-wrap:wrap"></div>
+      </div>
+    </div>
+
+    <div id="t-error" class="error-box spacer" style="display:none"></div>
+
+    <!-- Chart card -->
+    <div id="t-results" style="display:none">
+      <div class="card spacer">
+        <div class="trend-header">
+          <div>
+            <h3 id="t-res-keyword"></h3>
+            <small id="t-res-meta"></small>
+          </div>
+          <span id="t-indicator"></span>
+        </div>
+        <div id="t-no-timeline" style="display:none;text-align:center;padding:3rem 0;color:var(--subtle)">Keine Daten verfügbar</div>
+        <canvas id="t-chart" height="140"></canvas>
+      </div>
+
+      <div class="grid-2 spacer">
+        <div class="card">
+          <div class="section-title">📌 Top Suchanfragen</div>
+          <div id="t-top-queries"><p style="color:var(--subtle);font-size:.85rem">Keine Daten</p></div>
+        </div>
+        <div class="card">
+          <div class="section-title">🚀 Aufsteigende Suchanfragen</div>
+          <div id="t-rising-queries"><p style="color:var(--subtle);font-size:.85rem">Keine Daten</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PRODUCTS ────────────────────────────────────── -->
+  <div id="page-products" class="page">
+    <h2 style="font-size:1.4rem;font-weight:700">Produkt-Recherche</h2>
+    <p style="color:var(--muted);font-size:.875rem;margin-top:4px">Vergleiche Preise auf AliExpress und Amazon</p>
+
+    <div class="card spacer">
+      <div class="row">
+        <input id="p-keyword" class="flex1" placeholder="Produktname eingeben z.B. 'LED Strip Lights'..."
+          onkeydown="if(event.key==='Enter')productsSearch()"/>
+        <select id="p-sort">
+          <option value="default">Standard</option>
+          <option value="price_asc">Preis aufsteigend</option>
+          <option value="price_desc">Preis absteigend</option>
+          <option value="orders">Meiste Bestellungen</option>
+        </select>
+        <button class="btn btn-primary" id="p-btn" onclick="productsSearch()">🔍 Suchen</button>
+      </div>
+    </div>
+
+    <div id="p-error" class="error-box spacer" style="display:none"></div>
+
+    <div id="p-results" style="display:none">
+      <!-- filter tabs -->
+      <div class="row spacer" style="gap:.5rem">
+        <button class="btn btn-secondary active" id="pf-both" onclick="setProductFilter('both')">Alle</button>
+        <button class="btn btn-secondary" id="pf-aliexpress" onclick="setProductFilter('aliexpress')">🟠 AliExpress</button>
+        <button class="btn btn-secondary" id="pf-amazon" onclick="setProductFilter('amazon')">🟡 Amazon</button>
+      </div>
+
+      <div id="p-ali-section">
+        <p class="section-title spacer" style="color:#fb923c">🛍️ AliExpress <span id="p-ali-count"></span></p>
+        <div class="products-grid" id="p-ali-grid"></div>
+      </div>
+      <div id="p-amz-section">
+        <p class="section-title spacer" style="color:#fbbf24">🛍️ Amazon <span id="p-amz-count"></span></p>
+        <div class="products-grid" id="p-amz-grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TIKTOK ──────────────────────────────────────── -->
+  <div id="page-tiktok" class="page">
+    <h2 style="font-size:1.4rem;font-weight:700">TikTok Trends</h2>
+    <p style="color:var(--muted);font-size:.875rem;margin-top:4px">Entdecke virale Produkte und Hashtags</p>
+
+    <div class="card spacer">
+      <div class="row">
+        <input id="tt-keyword" class="flex1" placeholder="Hashtag oder Produkt z.B. 'cleaninghacks'..."
+          onkeydown="if(event.key==='Enter')tiktokSearch()"/>
+        <button class="btn btn-primary" id="tt-btn" onclick="tiktokSearch()">🔍 Suchen</button>
+        <button class="btn btn-secondary" id="tt-trend-btn" onclick="loadTikTokTrending()">🔥 Trending laden</button>
+      </div>
+      <p style="font-size:.75rem;color:var(--subtle);margin-top:.6rem">Tipp: Suche ohne # — z.B. "gadgets", "viral", "cleaninghacks"</p>
+    </div>
+
+    <div id="tt-error" class="error-box spacer" style="display:none"></div>
+
+    <!-- trending hashtags -->
+    <div id="tt-trending-section" style="display:none">
+      <div class="card spacer">
+        <div class="section-title">🔥 Trending Hashtags (TikTok Creative Center)</div>
+        <div id="tt-hashtag-list"></div>
+      </div>
+    </div>
+
+    <!-- search results -->
+    <div id="tt-results" style="display:none">
+      <div id="tt-hashtag-info"></div>
+      <div id="tt-videos-section">
+        <div class="section-title spacer" id="tt-video-title">Videos</div>
+        <div class="tiktok-grid" id="tt-video-grid"></div>
+        <div id="tt-no-videos" style="display:none">
+          <div class="card" style="text-align:center;padding:3rem 1rem">
+            <div style="font-size:2.5rem">🎵</div>
+            <p style="color:var(--subtle);margin-top:.75rem">Keine Videos gefunden.</p>
+            <p style="color:var(--border2);font-size:.8rem;margin-top:.4rem">TikTok schränkt manchmal den Zugriff ein.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  Dropshipping Research Tool &mdash; Daten von Google Trends, AliExpress, Amazon, TikTok
+</footer>
+
+<!-- ═══════════════ JAVASCRIPT ══════════════════════════ -->
+<script>
+// ── API base URL ──────────────────────────────────────────
+let API_BASE = localStorage.getItem('api_base') || '';
+document.getElementById('api-url-input').value = API_BASE;
+
+function saveApiUrl() {
+  API_BASE = document.getElementById('api-url-input').value.trim().replace(/\/$/, '');
+  localStorage.setItem('api_base', API_BASE);
+  document.getElementById('api-bar').classList.remove('open');
+  alert('Backend-URL gespeichert: ' + (API_BASE || '(relativ)'));
+}
+function toggleSettings() {
+  document.getElementById('api-bar').classList.toggle('open');
+}
+
+// ── Navigation ────────────────────────────────────────────
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('nav button[id^="tab-"]').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  document.getElementById('tab-' + id).classList.add('active');
+}
+
+// ── API fetch ─────────────────────────────────────────────
+async function apiFetch(path) {
+  const res = await fetch(API_BASE + path);
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.detail || `Fehler ${res.status}`);
+  return json;
+}
+
+function setLoading(btnId, loading, defaultText) {
+  const btn = document.getElementById(btnId);
+  btn.disabled = loading;
+  btn.textContent = loading ? 'Laden...' : defaultText;
+}
+function showError(boxId, msg) {
+  const el = document.getElementById(boxId);
+  el.textContent = msg;
+  el.style.display = msg ? 'block' : 'none';
+}
+
+// ═══════════════ DASHBOARD ════════════════════════════════
+function quickSearch(term) {
+  document.getElementById('p-keyword').value = term;
+  showPage('products');
+  productsSearch();
+}
+
+// ═══════════════ TRENDS PAGE ══════════════════════════════
+let trendChart = null;
+
+async function trendsSearch() {
+  const keyword = document.getElementById('t-keyword').value.trim();
+  if (!keyword) return;
+  setLoading('t-btn', true, '🔍 Suchen');
+  showError('t-error', '');
+  document.getElementById('t-results').style.display = 'none';
+  try {
+    const tf = document.getElementById('t-timeframe').value;
+    const geo = document.getElementById('t-geo').value;
+    const data = await apiFetch(
+      `/api/trends/search?keyword=${encodeURIComponent(keyword)}&timeframe=${encodeURIComponent(tf)}&geo=${encodeURIComponent(geo)}`
+    );
+    renderTrends(data);
+  } catch (e) {
+    showError('t-error', e.message || 'Fehler beim Laden der Daten.');
+  } finally {
+    setLoading('t-btn', false, '🔍 Suchen');
+  }
+}
+
+function renderTrends(data) {
+  document.getElementById('t-results').style.display = 'block';
+  document.getElementById('t-res-keyword').textContent = data.keyword;
+  document.getElementById('t-res-meta').textContent = `${data.geo || 'Weltweit'} · ${data.timeframe}`;
+
+  // Indicator
+  const tl = data.timeline || [];
+  let indHtml = '';
+  if (tl.length >= 2) {
+    const diff = tl[tl.length - 1].value - tl[0].value;
+    if (diff > 5)       indHtml = '<span class="indicator ind-up">↑ Steigend</span>';
+    else if (diff < -5) indHtml = '<span class="indicator ind-down">↓ Fallend</span>';
+    else                indHtml = '<span class="indicator ind-flat">— Stabil</span>';
+  }
+  document.getElementById('t-indicator').innerHTML = indHtml;
+
+  // Chart
+  const canvas = document.getElementById('t-chart');
+  const noData = document.getElementById('t-no-timeline');
+  if (tl.length === 0) {
+    canvas.style.display = 'none';
+    noData.style.display = 'block';
+  } else {
+    canvas.style.display = 'block';
+    noData.style.display = 'none';
+    if (trendChart) trendChart.destroy();
+    trendChart = new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels: tl.map(d => d.date.slice(5)),
+        datasets: [{
+          data: tl.map(d => d.value),
+          borderColor: '#4361ee',
+          backgroundColor: 'rgba(67,97,238,.12)',
+          borderWidth: 2,
+          pointRadius: 0,
+          fill: true,
+          tension: .3,
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#111827',
+            borderColor: '#374151',
+            borderWidth: 1,
+            titleColor: '#e5e7eb',
+            bodyColor: '#4361ee',
+          }
+        },
+        scales: {
+          x: { ticks: { color: '#6b7280', font: { size: 11 } }, grid: { color: '#1f2937' } },
+          y: { min: 0, max: 100, ticks: { color: '#6b7280', font: { size: 11 } }, grid: { color: '#1f2937' } }
+        }
+      }
+    });
+  }
+
+  // Top queries
+  const topEl = document.getElementById('t-top-queries');
+  if (data.top_queries?.length) {
+    topEl.innerHTML = data.top_queries.map(q => `
+      <div class="bar-row">
+        <span style="color:#d1d5db">${q.query}</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="bar-track"><span class="bar-fill" style="width:${q.value}%"></span></span>
+          <span style="color:var(--subtle);font-size:.8rem;width:30px;text-align:right">${q.value}</span>
+        </div>
+      </div>`).join('');
+  } else {
+    topEl.innerHTML = '<p style="color:var(--subtle);font-size:.85rem">Keine Daten</p>';
+  }
+
+  // Rising queries
+  const risingEl = document.getElementById('t-rising-queries');
+  if (data.rising_queries?.length) {
+    risingEl.innerHTML = data.rising_queries.map(q => `
+      <div class="bar-row">
+        <span style="color:#d1d5db">${q.query}</span>
+        <span class="rising-val">${typeof q.value === 'number' ? '+' + q.value + '%' : q.value}</span>
+      </div>`).join('');
+  } else {
+    risingEl.innerHTML = '<p style="color:var(--subtle);font-size:.85rem">Keine Daten</p>';
+  }
+}
+
+async function loadTrendingSearches() {
+  try {
+    const data = await apiFetch('/api/trends/trending');
+    const pills = data.trending || [];
+    if (!pills.length) return;
+    const wrap = document.getElementById('t-trending-wrap');
+    const container = document.getElementById('t-trending-pills');
+    wrap.style.display = 'block';
+    container.innerHTML = pills.map(t =>
+      `<button class="badge badge-btn" style="background:#1f2937;color:#d1d5db"
+        onclick="document.getElementById('t-keyword').value='${t.replace(/'/g,"\\'")}'">${t}</button>`
+    ).join('');
+  } catch {}
+}
+
+// ═══════════════ PRODUCTS PAGE ════════════════════════════
+let allAliProducts = [], allAmzProducts = [];
+
+async function productsSearch() {
+  const keyword = document.getElementById('p-keyword').value.trim();
+  if (!keyword) return;
+  setLoading('p-btn', true, '🔍 Suchen');
+  showError('p-error', '');
+  document.getElementById('p-results').style.display = 'none';
+  allAliProducts = []; allAmzProducts = [];
+  try {
+    const sort = document.getElementById('p-sort').value;
+    const [ali, amz] = await Promise.allSettled([
+      apiFetch(`/api/products/aliexpress?keyword=${encodeURIComponent(keyword)}&sort_by=${sort}`),
+      apiFetch(`/api/products/amazon?keyword=${encodeURIComponent(keyword)}`),
+    ]);
+    allAliProducts = ali.status === 'fulfilled' ? (ali.value.products || []) : [];
+    allAmzProducts = amz.status === 'fulfilled' ? (amz.value.products || []) : [];
+    renderProducts();
+  } catch (e) {
+    showError('p-error', e.message || 'Fehler beim Laden der Produktdaten.');
+  } finally {
+    setLoading('p-btn', false, '🔍 Suchen');
+  }
+}
+
+let productFilter = 'both';
+function setProductFilter(f) {
+  productFilter = f;
+  ['both','aliexpress','amazon'].forEach(id => {
+    document.getElementById('pf-'+id).classList.toggle('active', id === f);
+  });
+  renderProducts();
+}
+
+function renderProducts() {
+  document.getElementById('p-results').style.display = 'block';
+  const showAli = productFilter === 'both' || productFilter === 'aliexpress';
+  const showAmz = productFilter === 'both' || productFilter === 'amazon';
+
+  // Update tab labels
+  document.getElementById('pf-both').textContent = `Alle (${allAliProducts.length + allAmzProducts.length})`;
+  document.getElementById('pf-aliexpress').textContent = `🟠 AliExpress (${allAliProducts.length})`;
+  document.getElementById('pf-amazon').textContent = `🟡 Amazon (${allAmzProducts.length})`;
+
+  // AliExpress
+  const aliSec = document.getElementById('p-ali-section');
+  aliSec.style.display = showAli ? 'block' : 'none';
+  document.getElementById('p-ali-count').textContent = `(${allAliProducts.length} Ergebnisse)`;
+  document.getElementById('p-ali-grid').innerHTML = allAliProducts.map(p => productCardHtml(p, 'ali')).join('');
+
+  // Amazon
+  const amzSec = document.getElementById('p-amz-section');
+  amzSec.style.display = showAmz ? 'block' : 'none';
+  document.getElementById('p-amz-count').textContent = `(${allAmzProducts.length} Ergebnisse)`;
+  document.getElementById('p-amz-grid').innerHTML = allAmzProducts.map(p => productCardHtml(p, 'amz')).join('');
+}
+
+function productCardHtml(p, src) {
+  const imgHtml = p.image
+    ? `<img src="${escHtml(p.image)}" alt="${escHtml(p.title)}" loading="lazy" onerror="this.parentNode.innerHTML='<div class=no-img>📦</div>'">`
+    : `<div class="no-img">📦</div>`;
+  const badgeTl = p.badge ? `<span class="badge product-badge-tl" style="background:#f97316;color:#fff;font-size:.7rem">${escHtml(p.badge)}</span>` : '';
+  const badgeTr = p.prime ? `<span class="badge product-badge-tr" style="background:#2563eb;color:#fff;font-size:.7rem">Prime</span>` : '';
+  const stars = p.rating > 0 ? `<span class="stars">⭐ ${Number(p.rating).toFixed(1)}</span>` : '';
+  const srcBadge = src === 'ali'
+    ? `<span class="src-ali">AliExpress</span>`
+    : `<span class="src-amz">Amazon</span>`;
+  return `
+    <a class="product-card" href="${escHtml(p.url || '#')}" target="_blank" rel="noopener noreferrer">
+      <div class="product-img-wrap">${imgHtml}${badgeTl}${badgeTr}</div>
+      <div class="product-body">
+        <p class="product-title">${escHtml(p.title || '')}</p>
+        <div class="row" style="gap:.4rem;margin-top:4px">
+          <span class="product-price">${escHtml(p.price || '')}</span>
+          ${stars}
+        </div>
+        ${p.orders ? `<p class="product-meta">${escHtml(p.orders)}</p>` : ''}
+        ${p.reviews ? `<p class="product-meta">${escHtml(String(p.reviews))} Bewertungen</p>` : ''}
+      </div>
+      <div class="product-footer">${srcBadge}<span style="color:var(--subtle)">↗</span></div>
+    </a>`;
+}
+
+// ═══════════════ TIKTOK PAGE ══════════════════════════════
+async function tiktokSearch() {
+  const keyword = document.getElementById('tt-keyword').value.trim();
+  if (!keyword) return;
+  setLoading('tt-btn', true, '🔍 Suchen');
+  showError('tt-error', '');
+  document.getElementById('tt-results').style.display = 'none';
+  try {
+    const data = await apiFetch(`/api/tiktok/search?keyword=${encodeURIComponent(keyword)}`);
+    renderTikTokResults(data);
+  } catch (e) {
+    showError('tt-error', e.message || 'Fehler beim Laden der TikTok-Daten.');
+  } finally {
+    setLoading('tt-btn', false, '🔍 Suchen');
+  }
+}
+
+function renderTikTokResults(data) {
+  const sec = document.getElementById('tt-results');
+  sec.style.display = 'block';
+
+  // Hashtag info
+  const infoEl = document.getElementById('tt-hashtag-info');
+  if (data.hashtag_info?.title) {
+    const hi = data.hashtag_info;
+    infoEl.innerHTML = `
+      <div class="hashtag-info spacer">
+        <div style="display:flex;align-items:start;justify-content:space-between">
+          <div>
+            <h2>#${escHtml(hi.title)}</h2>
+            ${hi.desc ? `<p style="color:var(--muted);font-size:.85rem;margin-top:4px">${escHtml(hi.desc)}</p>` : ''}
+          </div>
+          <a href="https://www.tiktok.com/tag/${encodeURIComponent(hi.title)}" target="_blank" rel="noopener noreferrer" style="color:#f472b6;font-size:1.2rem">↗</a>
+        </div>
+        <div class="hashtag-stats">
+          <div class="hashtag-stat"><p>Aufrufe</p><p>${formatCount(hi.views)}</p></div>
+          <div class="hashtag-stat"><p>Videos</p><p>${formatCount(hi.video_count)}</p></div>
+        </div>
+      </div>`;
+  } else {
+    infoEl.innerHTML = '';
+  }
+
+  // Videos
+  const videos = data.videos || [];
+  document.getElementById('tt-video-title').textContent = `Videos (${videos.length})`;
+  const grid = document.getElementById('tt-video-grid');
+  const noVid = document.getElementById('tt-no-videos');
+  if (videos.length) {
+    noVid.style.display = 'none';
+    grid.style.display = 'grid';
+    grid.innerHTML = videos.map(v => videoCardHtml(v)).join('');
+  } else {
+    noVid.style.display = 'block';
+    grid.style.display = 'none';
+  }
+}
+
+function videoCardHtml(v) {
+  const thumb = v.cover
+    ? `<img src="${escHtml(v.cover)}" alt="${escHtml(v.desc || '')}" loading="lazy" onerror="this.parentNode.innerHTML='<div class=video-no-thumb>🎵</div>'">`
+    : `<div class="video-no-thumb">🎵</div>`;
+  return `
+    <a class="video-card" href="${escHtml(v.url || '#')}" target="_blank" rel="noopener noreferrer">
+      <div class="video-thumb">
+        ${thumb}
+        <div class="video-thumb-overlay"></div>
+        <div class="video-thumb-caption">${escHtml(v.desc || '')}</div>
+      </div>
+      <div class="video-body">
+        <p class="video-author">@${escHtml(v.author || '')}</p>
+        <div class="video-stats">
+          <span class="video-stat">▶ ${formatCount(v.plays)}</span>
+          <span class="video-stat" style="color:#f87171">♥ ${formatCount(v.likes)}</span>
+          <span class="video-stat" style="color:#60a5fa">💬 ${formatCount(v.comments)}</span>
+          <span class="video-stat" style="color:#34d399">↗ ${formatCount(v.shares)}</span>
+        </div>
+      </div>
+    </a>`;
+}
+
+async function loadTikTokTrending() {
+  setLoading('tt-trend-btn', true, '🔥 Trending laden');
+  try {
+    const data = await apiFetch('/api/tiktok/trending');
+    renderTikTokTrending(data);
+  } catch (e) {
+    showError('tt-error', e.message || 'Fehler beim Laden der Trending-Daten.');
+  } finally {
+    setLoading('tt-trend-btn', false, '🔥 Trending laden');
+  }
+}
+
+function renderTikTokTrending(data) {
+  const trends = data.trends || [];
+  const sec = document.getElementById('tt-trending-section');
+  const list = document.getElementById('tt-hashtag-list');
+  if (!trends.length) { sec.style.display = 'none'; return; }
+  sec.style.display = 'block';
+  list.innerHTML = trends.map((t, i) => {
+    const trendBadge = t.trend
+      ? `<span style="font-size:.75rem;padding:2px 8px;border-radius:99px;${t.trend==='up'?'background:rgba(52,211,153,.15);color:#34d399':'background:rgba(239,68,68,.15);color:#f87171'}">${t.trend==='up'?'↑':'↓'}</span>`
+      : '';
+    return `<div class="hashtag-row">
+      <div class="ht-left">
+        <span class="ht-rank">${t.rank || i + 1}</span>
+        <a class="ht-link" href="https://www.tiktok.com/tag/${encodeURIComponent(t.hashtag)}" target="_blank" rel="noopener noreferrer">#${escHtml(t.hashtag)}</a>
+      </div>
+      <div class="ht-right">
+        <span>${formatCount(t.views)} Videos</span>
+        ${trendBadge}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Helpers ───────────────────────────────────────────────
+function formatCount(n) {
+  if (!n) return '0';
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
+  if (n >= 1_000)     return (n / 1_000).toFixed(1) + 'K';
+  return String(n);
+}
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+</script>
+</body>
+</html>
